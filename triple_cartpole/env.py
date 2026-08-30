@@ -112,18 +112,21 @@ class TripleCartpoleEnv(DirectRLEnv):
         light_cfg = sim_utils.DomeLightCfg(intensity=2500.0, color=(0.85, 0.87, 0.9))
         light_cfg.func("/World/Light", light_cfg)
 
+    # 从 PhysX 关节状态计算小车状态与三根杆的绝对姿态。
     def _compute_intermediate_values(self) -> None:
         self._cart_pos = self.joint_pos[:, self._cart_dof_idx[0]]
         self._cart_vel = self.joint_vel[:, self._cart_dof_idx[0]]
         self._link_angle = torch.cumsum(self.joint_pos[:, self._pole_dof_idx], dim=-1)
         self._link_rate = torch.cumsum(self.joint_vel[:, self._pole_dof_idx], dim=-1)
 
+    # MDP 动作：把策略输出裁剪到 [-1, 1]，再映射为小车水平力。
     def _pre_physics_step(self, actions: torch.Tensor) -> None:
         self.actions = actions.clamp(-1.0, 1.0)
         self._effort = self.cfg.action_scale * self.actions
         if self.cfg.push_force > 0.0:
             self._apply_push()
 
+    # 随机外力直接作用于刚体，用于改变转移动力学并训练抗扰能力。
     def _apply_push(self) -> None:
         self._push_timer -= 1
         fire = self._push_timer <= 0
@@ -135,9 +138,11 @@ class TripleCartpoleEnv(DirectRLEnv):
         self._push_left = (self._push_left - 1).clamp(min=0)
         self._push_wrench.set_forces_and_torques(forces=self._push_wrench_b, body_ids=self._push_body_ids)
 
+    # 将当前控制力写入唯一主动关节，随后由 PhysX 推进状态。
     def _apply_action(self) -> None:
         self.robot.set_joint_effort_target(self._effort, joint_ids=self._cart_dof_idx)
 
+    # MDP 观测：拼接并归一化为 11 维策略输入。
     def _get_observations(self) -> dict:
         self._compute_intermediate_values()
         obs = torch.cat(
@@ -152,6 +157,7 @@ class TripleCartpoleEnv(DirectRLEnv):
         )
         return {"policy": obs}
 
+    # MDP 奖励：兼顾存活、竖直、居中、低速、少用力和动作平滑。
     def _get_rewards(self) -> torch.Tensor:
         cfg = self.cfg
         terminated = self.reset_terminated.float()
@@ -170,6 +176,7 @@ class TripleCartpoleEnv(DirectRLEnv):
         self._previous_actions = self.actions.clone()
         return reward
 
+    # MDP 终止：区分失败终止与正常超时。
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
         self._compute_intermediate_values()
         time_out = self.episode_length_buf >= self.max_episode_length - 1
@@ -179,6 +186,7 @@ class TripleCartpoleEnv(DirectRLEnv):
         toppled = (self._link_angle.abs() > self.cfg.max_tilt).any(dim=-1)
         return out_of_bounds | toppled, time_out
 
+    # MDP 初始分布：为待重置环境随机采样小车和摆杆状态。
     def _reset_idx(self, env_ids: Sequence[int] | None):
         if env_ids is None:
             env_ids = self.robot._ALL_INDICES
