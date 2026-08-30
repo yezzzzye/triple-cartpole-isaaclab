@@ -1,0 +1,8 @@
+*.usd binary
+*.usda text
+*.usdc binary
+*.fbx binary
+
+*.ps1 text eol=crlf
+*.py text eol=lf
+*.md text eol=lf

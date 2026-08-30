@@ -1,0 +1,27 @@
+[project]
+name = "triple-cartpole-isaaclab"
+version = "0.1.0"
+description = "Triple inverted pendulum on a cart, as an Isaac Lab direct RL task"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+keywords = ["isaac-lab", "isaac-sim", "reinforcement-learning", "inverted-pendulum", "control"]
+
+dependencies = []
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["triple_cartpole", "triple_cartpole.agents"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "W"]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/*.py" = ["E402"]
