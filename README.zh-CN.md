@@ -38,7 +38,7 @@ $env:ISAACLAB_PATH = 'D:\path\to\IsaacLab'
 
 ```powershell
 # 默认任务为 swingup；PPO 从头训练
-.\run.ps1 scripts/train.py --headless --num_envs 2048 --max_iterations 4000 --seed 2
+.\run.ps1 scripts/train.py --task swingup --headless --num_envs 2048 --max_iterations 4000 --seed 2
 
 # 优先续训最新训练权重；日志中没有权重时使用交付策略
 .\run.ps1 scripts/train.py --headless --resume

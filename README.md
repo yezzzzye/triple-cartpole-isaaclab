@@ -36,7 +36,7 @@ $env:ISAACLAB_PATH = 'D:\path\to\IsaacLab'
 
 ```powershell
 # swingup is the default task
-.\run.ps1 scripts/train.py --headless --num_envs 2048 --max_iterations 4000 --seed 2
+.\run.ps1 scripts/train.py --task swingup --headless --num_envs 2048 --max_iterations 4000 --seed 2
 .\run.ps1 scripts/train.py --headless --resume
 .\run.ps1 scripts/train.py --headless --checkpoint checkpoints/swingup_policy.pt
 .\run.ps1 scripts/check_env.py --task swingup --headless
