@@ -3,8 +3,7 @@
 
 The authored asset is a *scene*, not a *robot*, so it cannot be loaded as an articulation
 as-is. This script rewires the physics while leaving all authored geometry, materials,
-masses and joint frames untouched. README.md ("How the asset is wired") explains each
-change and why it is needed.
+masses and joint frames untouched.
 
 Usage::
 
@@ -25,6 +24,7 @@ parser.add_argument("--input", type=Path, default=REPO_ROOT / "assets" / "triple
 parser.add_argument("--output", type=Path, default=REPO_ROOT / "assets" / "triple_cartpole_physics.usd")
 parser.add_argument("--root-name", type=str, default="TripleCartpole", help="Name of the generated default prim.")
 parser.add_argument("--slider-effort", type=float, default=400.0, help="maxForce written on the slider drive [N].")
+parser.add_argument("--slider-limit-m", type=float, default=None, help="Symmetric cart travel limit [m].")
 args_cli = parser.parse_args()
 
 app_launcher = AppLauncher(headless=True)
@@ -117,6 +117,10 @@ def main() -> None:
         raise RuntimeError(f"Joint '{SLIDER_JOINT}' not found under {root_path}")
 
     UsdPhysics.Joint(slider).CreateBody0Rel().SetTargets([Sdf.Path(rail_path)])
+    if args_cli.slider_limit_m is not None:
+        slider_joint = UsdPhysics.PrismaticJoint(slider)
+        slider_joint.CreateLowerLimitAttr(-args_cli.slider_limit_m)
+        slider_joint.CreateUpperLimitAttr(args_cli.slider_limit_m)
     drive = UsdPhysics.DriveAPI.Apply(slider, "linear")
     drive.CreateTypeAttr("force")
     drive.CreateStiffnessAttr(0.0)

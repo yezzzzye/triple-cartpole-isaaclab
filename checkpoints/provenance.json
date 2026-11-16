@@ -1,0 +1,28 @@
+{
+  "policy_file": "swingup_policy.pt",
+  "sha256": "b54de7ba0139a9f8dfe35bc43c1b0868303bec1157c88a6f1c28f377abfdda9b",
+  "source_run": "logs/rsl_rl/triple_cartpole_swingup/2026-09-28_19-03-56",
+  "source_checkpoint": "model_3300.pt",
+  "training_method": "PPO from scratch; no teacher, no distillation, no controller switching",
+  "training_seed": 2,
+  "parallel_training_environments": 2048,
+  "actor_hidden_dims": [256, 256, 128],
+  "observation_dimension": 11,
+  "action_dimension": 1,
+  "action": "horizontal cart force, clipped to +/-50 N",
+  "training_push_frame": "pole3 local X",
+  "acceptance_impulse_frame": "global X",
+  "isaac_sim_version": "5.1.0",
+  "isaac_lab_source_version": "2.3.2",
+  "python_version": "3.11.13",
+  "rsl_rl_version": "3.0.1",
+  "torch_version": "2.7.0+cu128",
+  "training_config_files": ["training_env.yaml", "training_agent.yaml"],
+  "acceptance_results_directory": "../reports",
+  "baseline_policy": {
+    "file": "balance_policy.pt",
+    "sha256": "35ec0556709bab196c745224c47ce6880ec01b0fbd964d1724c1da5779309a08",
+    "source_checkpoint": "logs/rsl_rl/triple_cartpole/2026-08-06_23-40-33/model_best.pt",
+    "purpose": "Original +/-3 m near-upright balance task"
+  }
+}

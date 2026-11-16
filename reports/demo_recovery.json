@@ -1,0 +1,88 @@
+{
+  "checkpoint": "D:\\project-rl\\USD\\3inverted\\checkpoints\\swingup_policy.pt",
+  "checkpoint_sha256": "b54de7ba0139a9f8dfe35bc43c1b0868303bec1157c88a6f1c28f377abfdda9b",
+  "seed": 2,
+  "initial": "down_exact",
+  "num_trials": 1,
+  "horizon_s": 45.0,
+  "hold_s": 10.0,
+  "tilt_limit_rad": 0.35,
+  "cart_limit_m": 11.8,
+  "control_dt_s": 0.016666666666666666,
+  "push_force_N": 0.0,
+  "push_interval_s": 3.0,
+  "push_duration_ms": 100.0,
+  "recovery_force_N": 12.0,
+  "disturbance_frame": "global X",
+  "recovery_duration_ms": 200.0,
+  "no_mid_trial_resets": true,
+  "single_policy": true,
+  "actor_class": "ActorCritic",
+  "versions": {
+    "torch": "2.7.0+cu128",
+    "numpy": "1.26.0",
+    "rsl-rl-lib": "3.0.1",
+    "tensordict": "0.11.0",
+    "h5py": "3.11.0"
+  },
+  "swingup_hold_successes": 1,
+  "recovery_sequence_successes": 1,
+  "recovered_after_tilt_excursion": 1,
+  "trials": {
+    "initial_observations": [
+      [
+        0.0,
+        0.0,
+        -8.742277657347586e-08,
+        -8.742277657347586e-08,
+        -8.742277657347586e-08,
+        -1.0,
+        -1.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    ],
+    "swingup_hold_success": [
+      true
+    ],
+    "first_hold_completed_s": [
+      15.966666221618652
+    ],
+    "longest_hold_s": [
+      25.26666831970215
+    ],
+    "valid_at_end": [
+      true
+    ],
+    "kick_started_s": [
+      15.966667175292969
+    ],
+    "post_kick_hold_success": [
+      true
+    ],
+    "post_kick_hold_completed_after_impulse_s": [
+      13.566667556762695
+    ],
+    "post_kick_peak_tilt_rad": [
+      3.12685489654541
+    ],
+    "left_upright_after_kick": [
+      true
+    ],
+    "max_cart_force_N": [
+      50.0
+    ],
+    "peak_cart_travel_m": [
+      6.4626994132995605
+    ],
+    "final_absolute_tilt_rad": [
+      [
+        0.0011451211757957935,
+        0.001035800902172923,
+        0.0008457279182039201
+      ]
+    ]
+  }
+}

@@ -5,8 +5,15 @@ __pycache__/
 venv/
 
 logs/
-output/
+.build/
 tmp/
+录课视频/
+视频制作/
+reports/smoke/
+reports/videos/build/
+reports/videos/source/*.png
+reports/videos/film_contact_sheet.jpg
+reports/videos/impact_middle.png
 *.log
 *.fbx
 

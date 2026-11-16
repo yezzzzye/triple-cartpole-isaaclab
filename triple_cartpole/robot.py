@@ -9,6 +9,7 @@ from isaaclab.assets import ArticulationCfg
 
 ASSETS_DIR = Path(__file__).resolve().parents[1] / "assets"
 TRIPLE_CARTPOLE_USD = ASSETS_DIR / "triple_cartpole_physics.usd"
+TRIPLE_CARTPOLE_SWINGUP_USD = ASSETS_DIR / "triple_cartpole_swingup.usd"
 
 CART_JOINT = "slider_to_cart"
 POLE_JOINTS = ("cart_to_pole1", "pole1_to_pole2", "pole2_to_pole3")
@@ -52,4 +53,8 @@ TRIPLE_CARTPOLE_CFG = ArticulationCfg(
             damping=0.0,
         ),
     },
+)
+
+TRIPLE_CARTPOLE_SWINGUP_CFG = TRIPLE_CARTPOLE_CFG.replace(
+    spawn=TRIPLE_CARTPOLE_CFG.spawn.replace(usd_path=str(TRIPLE_CARTPOLE_SWINGUP_USD))
 )

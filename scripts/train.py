@@ -1,36 +1,24 @@
 # SPDX-License-Identifier: MIT
-"""Train a PPO policy to balance the triple inverted pendulum, using rsl-rl.
-
-Checkpoints and TensorBoard logs land in ``logs/rsl_rl/triple_cartpole/<timestamp>/``.
-
-Usage::
-
-    .\\run.ps1 scripts/train.py --headless
-    .\\run.ps1 scripts/train.py --headless --num_envs 8192 --max_iterations 6000
-    .\\run.ps1 scripts/train.py --headless --resume            # continue the newest run
-
-Watch progress with::
-
-    tensorboard --logdir logs/rsl_rl/triple_cartpole
-"""
+"""Train or resume a PPO policy; logs are stored under logs/rsl_rl/<task>/<timestamp>."""
 
 from __future__ import annotations
 
 import argparse
 import sys
-from pathlib import Path
 
 from isaaclab.app import AppLauncher
+from _common import ROOT, log_root, make_runner, resolve_checkpoint
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(ROOT))
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+parser.add_argument("--task", choices=("balance", "swingup"), default="swingup")
 parser.add_argument("--num_envs", type=int, default=None, help="Override the number of environments.")
 parser.add_argument("--max_iterations", type=int, default=None, help="Override the number of PPO iterations.")
 parser.add_argument("--seed", type=int, default=None, help="Override the random seed.")
 parser.add_argument("--resume", action="store_true", help="Resume from the newest checkpoint.")
 parser.add_argument("--checkpoint", type=str, default=None, help="Resume from a specific checkpoint (.pt).")
+parser.add_argument("--entropy_coef", type=float, default=None, help="Override PPO entropy coefficient.")
 parser.add_argument("--push_force", type=float, default=None, help="Random sideways kick on the top link [N].")
 parser.add_argument("--init_scale", type=float, default=None, help="Multiply the reset randomisation ranges.")
 parser.add_argument("--init_tilt", type=float, default=None, help="Reset spread of the link angles alone [rad].")
@@ -44,24 +32,11 @@ args_cli = parser.parse_args()
 if args_cli.video:
     args_cli.enable_cameras = True
 
-LOG_ROOT = REPO_ROOT / "logs" / "rsl_rl" / "triple_cartpole"
-
-def resolve_resume_path() -> str | None:
-    if args_cli.checkpoint:
-        path = Path(args_cli.checkpoint)
-        found = next((candidate for candidate in (path, REPO_ROOT / path) if candidate.is_file()), None)
-        if found is None:
-            raise SystemExit(f"Checkpoint not found: {args_cli.checkpoint}")
-        return str(found)
-    if not args_cli.resume:
-        return None
-    checkpoints = sorted(LOG_ROOT.glob("*/model_*.pt"), key=lambda p: p.stat().st_mtime)
-    if not checkpoints:
-        raise SystemExit(f"--resume given but no checkpoint found under {LOG_ROOT}")
-    return str(checkpoints[-1])
-
-
-RESUME_PATH = resolve_resume_path()
+LOG_ROOT = log_root(args_cli.task)
+RESUME_PATH = (
+    resolve_checkpoint(args_cli.checkpoint, task=args_cli.task, latest=True)
+    if args_cli.checkpoint or args_cli.resume else None
+)
 
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
@@ -71,23 +46,22 @@ from datetime import datetime
 
 import gymnasium as gym
 import torch
-from rsl_rl.runners import OnPolicyRunner
 
 from isaaclab.utils.dict import print_dict
 from isaaclab.utils.io import dump_yaml
-from isaaclab_rl.rsl_rl import RslRlVecEnvWrapper
 from isaaclab_tasks.utils import load_cfg_from_registry
 
 import triple_cartpole  # noqa: F401
-from triple_cartpole import TASK_ID
+from triple_cartpole import SWINGUP_TASK_ID, TASK_ID
 
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 
 
 def main() -> None:
-    env_cfg = triple_cartpole.TripleCartpoleEnvCfg()
-    agent_cfg = load_cfg_from_registry(TASK_ID, "rsl_rl_cfg_entry_point")
+    task_id = SWINGUP_TASK_ID if args_cli.task == "swingup" else TASK_ID
+    env_cfg = triple_cartpole.TripleCartpoleSwingupEnvCfg() if args_cli.task == "swingup" else triple_cartpole.TripleCartpoleEnvCfg()
+    agent_cfg = load_cfg_from_registry(task_id, "rsl_rl_cfg_entry_point")
 
     if args_cli.num_envs is not None:
         env_cfg.scene.num_envs = args_cli.num_envs
@@ -102,6 +76,8 @@ def main() -> None:
         env_cfg.init_pole_angle_range = args_cli.init_tilt
     if args_cli.max_iterations is not None:
         agent_cfg.max_iterations = args_cli.max_iterations
+    if args_cli.entropy_coef is not None:
+        agent_cfg.algorithm.entropy_coef = args_cli.entropy_coef
     if args_cli.seed is not None:
         agent_cfg.seed = args_cli.seed
     if args_cli.device is not None:
@@ -115,7 +91,7 @@ def main() -> None:
     env_cfg.log_dir = str(log_dir)
     print(f"[train] logging to {log_dir}")
 
-    env = gym.make(TASK_ID, cfg=env_cfg, render_mode="rgb_array" if args_cli.video else None)
+    env = gym.make(task_id, cfg=env_cfg, render_mode="rgb_array" if args_cli.video else None)
 
     if args_cli.video:
         video_kwargs = {
@@ -128,13 +104,13 @@ def main() -> None:
         print_dict(video_kwargs, nesting=4)
         env = gym.wrappers.RecordVideo(env, **video_kwargs)
 
-    env = RslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
-
-    runner = OnPolicyRunner(env, agent_cfg.to_dict(), log_dir=str(log_dir), device=agent_cfg.device)
+    env, runner = make_runner(env, task_id, device=agent_cfg.device, log_dir=log_dir, agent_cfg=agent_cfg)
     runner.add_git_repo_to_log(__file__)
     if resume_path:
         print(f"[train] resuming from {resume_path}")
-        runner.load(resume_path)
+        runner.load(str(resume_path))
+        # Resume the initial-state curriculum at the saved policy's training age.
+        env.unwrapped.common_step_counter = runner.current_learning_iteration * agent_cfg.num_steps_per_env
 
     dump_yaml(str(log_dir / "params" / "env.yaml"), env_cfg)
     dump_yaml(str(log_dir / "params" / "agent.yaml"), agent_cfg)

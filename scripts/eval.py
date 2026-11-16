@@ -17,12 +17,11 @@ from __future__ import annotations
 
 import argparse
 import sys
-from pathlib import Path
 
 from isaaclab.app import AppLauncher
+from _common import ROOT, make_runner, resolve_checkpoint
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(ROOT))
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument("--num_envs", type=int, default=256, help="Number of environments to average over.")
@@ -36,47 +35,13 @@ parser.add_argument("--seed", type=int, default=0, help="Every checkpoint replay
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
 
-LOG_ROOT = REPO_ROOT / "logs" / "rsl_rl" / "triple_cartpole"
-
-
-def default_checkpoint() -> Path | None:
-    bundled = REPO_ROOT / "checkpoints" / "model_robust.pt"
-    if bundled.is_file():
-        return bundled
-    checkpoints = sorted(LOG_ROOT.glob("*/model_*.pt"), key=lambda path: path.stat().st_mtime)
-    if not checkpoints:
-        return None
-    newest = checkpoints[-1]
-    pinned = newest.parent / "model_best.pt"
-    return pinned if pinned.is_file() else newest
-
-def resolve_checkpoints() -> list[Path]:
-    if args_cli.checkpoint:
-        paths, missing = [], []
-        for c in args_cli.checkpoint:
-            path = Path(c)
-            found = next((candidate for candidate in (path, REPO_ROOT / path) if candidate.is_file()), None)
-            (paths if found else missing).append(found or c)
-        if missing:
-            raise SystemExit("Checkpoint(s) not found:\n  " + "\n  ".join(str(m) for m in missing))
-        return paths
-    found = default_checkpoint()
-    if found is None:
-        raise SystemExit(f"No checkpoint found under {LOG_ROOT}. Train first.")
-    return [found]
-
-
-CHECKPOINTS = resolve_checkpoints()
+CHECKPOINTS = [resolve_checkpoint(path, task="balance") for path in (args_cli.checkpoint or [None])]
 
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 
 import gymnasium as gym
 import torch
-from rsl_rl.runners import OnPolicyRunner
-
-from isaaclab_rl.rsl_rl import RslRlVecEnvWrapper
-from isaaclab_tasks.utils import load_cfg_from_registry
 
 import triple_cartpole  # noqa: F401
 from triple_cartpole import TASK_ID
@@ -95,17 +60,16 @@ def main() -> None:
         env_cfg.push_force = args_cli.push_force
     if args_cli.max_tilt is not None:
         env_cfg.max_tilt = args_cli.max_tilt
-    for name in ("init_cart_pos_range", "init_cart_vel_range", "init_pole_angle_range", "init_pole_vel_range"):
-        setattr(env_cfg, name, getattr(env_cfg, name) * args_cli.init_scale)
+    scale = args_cli.init_scale
+    env_cfg.init_cart_pos_range *= scale
+    env_cfg.init_cart_vel_range *= scale
+    env_cfg.init_pole_angle_range *= scale
+    env_cfg.init_pole_vel_range *= scale
     if args_cli.init_tilt is not None:
         env_cfg.init_pole_angle_range = args_cli.init_tilt
-    env_cfg.seed = args_cli.seed
 
-    agent_cfg = load_cfg_from_registry(TASK_ID, "rsl_rl_cfg_entry_point")
-    agent_cfg.seed = args_cli.seed
     env = gym.make(TASK_ID, cfg=env_cfg)
-    env = RslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
-    runner = OnPolicyRunner(env, agent_cfg.to_dict(), log_dir=None, device=agent_cfg.device)
+    env, runner = make_runner(env, TASK_ID, device=env_cfg.sim.device)
 
     unwrapped = env.unwrapped
     horizon = int(unwrapped.max_episode_length) - 1

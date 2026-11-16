@@ -23,6 +23,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument("--num_envs", type=int, default=4)
+parser.add_argument("--task", choices=("balance", "swingup"), default="balance")
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
 
@@ -33,7 +34,7 @@ import gymnasium as gym
 import torch
 
 import triple_cartpole  # noqa: F401
-from triple_cartpole import TASK_ID
+from triple_cartpole import SWINGUP_TASK_ID, TASK_ID
 from triple_cartpole.robot import CART_JOINT, POLE_JOINTS
 
 RESULTS: list[tuple[bool, str]] = []
@@ -44,15 +45,14 @@ def check(condition: bool, label: str, detail: str = "") -> None:
 
 
 def main() -> int:
-    env_cfg = triple_cartpole.TripleCartpoleEnvCfg()
+    env_cfg = triple_cartpole.TripleCartpoleSwingupEnvCfg() if args_cli.task == "swingup" else triple_cartpole.TripleCartpoleEnvCfg()
     env_cfg.scene.num_envs = args_cli.num_envs
-    env_cfg.seed = 0
     env_cfg.enable_termination = False
     env_cfg.episode_length_s = 60.0
     if args_cli.device is not None:
         env_cfg.sim.device = args_cli.device
 
-    env = gym.make(TASK_ID, cfg=env_cfg).unwrapped
+    env = gym.make(SWINGUP_TASK_ID if args_cli.task == "swingup" else TASK_ID, cfg=env_cfg).unwrapped
     robot = env.robot
     obs, _ = env.reset()
 
@@ -99,11 +99,18 @@ def main() -> int:
     cart_pos = env._cart_pos.mean().item()
     print(f"  mean cart position  : {cart_pos:+.3f} m")
     check(cart_pos > 0.1, "actuated joint moves the cart", f"reached {cart_pos:+.3f} m")
+    pole_torque = robot.data.applied_torque[:, pole_idx].abs().max().item()
+    check(pole_torque < 1e-6, "no control torque on any pendulum joint", f"max torque {pole_torque:g} Nm")
 
     print("\n=== joint limits ===")
     limits = robot.data.joint_pos_limits[0]
     for name, lim in zip(robot.joint_names, limits.tolist()):
         print(f"  {name:<18}: [{lim[0]:+.3f}, {lim[1]:+.3f}]")
+    if args_cli.task == "swingup":
+        cart_idx, _ = robot.find_joints(CART_JOINT)
+        check(torch.allclose(limits[cart_idx[0]], torch.tensor([-12.0, 12.0], device=env.device)),
+              "swing-up cart travel is +/-12 m")
+        check(not env_cfg.terminate_on_tilt, "large pendulum angles do not terminate swing-up")
 
     print("\n=== summary ===")
     failures = 0

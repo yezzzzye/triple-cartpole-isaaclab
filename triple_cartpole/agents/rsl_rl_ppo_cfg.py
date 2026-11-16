@@ -32,3 +32,20 @@ class TripleCartpolePPORunnerCfg(RslRlOnPolicyRunnerCfg):
         desired_kl=0.01,
         max_grad_norm=1.0,
     )
+
+
+@configclass
+class TripleCartpoleSwingupPPORunnerCfg(TripleCartpolePPORunnerCfg):
+    """Raw periodic observations avoid a frozen near-upright normalization range."""
+
+    max_iterations = 4000
+    experiment_name = "triple_cartpole_swingup"
+    policy = RslRlPpoActorCriticCfg(
+        init_noise_std=0.8,
+        actor_obs_normalization=False,
+        critic_obs_normalization=False,
+        actor_hidden_dims=[256, 256, 128],
+        critic_hidden_dims=[256, 256, 128],
+        activation="elu",
+    )
+    algorithm = TripleCartpolePPORunnerCfg().algorithm.replace(entropy_coef=0.01, gamma=0.9975)
