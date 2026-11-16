@@ -10,6 +10,8 @@ or reset during a trajectory.
 
 ## Run
 
+Run commands from the repository root. In the local course bundle, this repository lives in `code/`; videos and other course deliverables live beside it.
+
 ```powershell
 .\demo.ps1                       # Exact downward release, impulse every 25 seconds
 .\demo.ps1 --initial_pose random # Large random initial angles

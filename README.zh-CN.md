@@ -7,7 +7,7 @@ Isaac Lab 的 Direct RL 任务：一个水平移动小车连接三根串联摆�
 
 ## 快速开始
 
-在 PowerShell 中进入项目目录：
+在 PowerShell 中进入项目目录后执行。课程资料包的项目位于 `code` 子目录；直接从 GitHub 克隆时，克隆目录本身就是项目根目录。
 
 ```powershell
 .\demo.ps1                       # 固定策略：精确下垂起步，每 25 秒受一次冲击
